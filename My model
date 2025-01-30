@@ -1,0 +1,80 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy.stats import zscore
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+df = pd.read_csv('/content/sample_data/diabetes.csv')
+print(df.head())
+print(df.tail())
+print(df.shape)
+print(df.columns)
+print(df.dtypes)
+print(df.describe())
+
+sns.histplot(df['BMI'], kde = False )
+plt.show()
+
+# to check for missing value
+missing = df.isnull().sum()
+print(missing)
+
+# handling missing value replacing with mean
+df['BMI'] = df['BMI'].fillna(df['BMI'].mean())
+missing = df.isnull().sum()
+print(missing)
+
+#handling missing value by dropping
+df = df.dropna()
+missing = df.isnull().sum()
+print(missing)
+
+#calculate zscore
+feature = df.columns.drop('Outcome')
+zscore_value = df[feature].apply(zscore)
+outlier = (zscore_value.abs()> 3).any(axis = 1)
+outlier_row = df[outlier]
+print(outlier_row)
+
+#visualise outlier
+df['outlier'] = outlier
+sns.pairplot(df[feature .tolist() + ['outlier']], hue ='outlier', diag_kind='kde',palette={False: 'blue', True:"red"})
+plt.show()
+
+df_cleaned = df[~outlier]
+df_cleaned = df_cleaned.drop('outlier', axis = 1)
+print(df_cleaned.shape)
+
+# calculate correlation
+correlation_matrix = df_cleaned.corr()
+print(correlation_matrix['Outcome'].sort_values(ascending = False))
+
+#visualising correlation matix
+plt.figure.figsize=(10,8)
+sns.heatmap(correlation_matrix, annot = True, cmap ='coolwarm')
+plt.show()
+
+# drop feature with lowest correlation (SkinThickness)
+df_cleaned = df_cleaned.drop('SkinThickness', axis = 1)
+print(df_cleaned.shape)
+
+# split dataset into training and testing set
+x = df_cleaned.drop('Outcome', axis = 1)
+y = df_cleaned['Outcome']
+x_train, x_test, y_train, y_test = train_test_split(x,y,test_size = 0.2, random_state = 42)
+
+# standardising and scaling
+scaler = StandardScaler()
+x_train_scaled = scaler.fit_transform(x_train)
+x_test_scaled = scaler.transform(x_test)
+
+#buidling model with RandomForestClassifier
+rf_model = RandomForestClassifier(n_estimators=100, max_depth= 10,min_samples_split=5, random_state =42)
+rf_model.fit(x_train_scaled, y_train )
+rf_prediction = rf_model.predict(x_test_scaled)
+print('Accuracy:',accuracy_score(y_test, rf_prediction) )
+print(classification_report(y_test, rf_prediction))
+print(confusion_matrix(y_test, rf_prediction))
